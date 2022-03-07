@@ -17,19 +17,33 @@ from har_tfrecord_util import input_pipeline_har
 
 layers = tf.contrib.layers 
 
-SEPCTURAL_SAMPLES = 10
-FEATURE_DIM = SEPCTURAL_SAMPLES*6*2
+TASK = "seismic"
+
+if TASK != "seismic":
+	SEPCTURAL_SAMPLES = 10
+	FEATURE_DIM = SEPCTURAL_SAMPLES*6*2
+	OUT_DIM = 6
+	WIDE = 20
+else:
+	FEATURE_DIM = 16
+	OUT_DIM = 3
+	WIDE = 16
+
 CONV_LEN = 3
 CONV_LEN_INTE = 3
 CONV_LEN_LAST = 3
+
+# CONV_LEN = 2
+# CONV_LEN_INTE = 2
+# CONV_LEN_LAST = 2
+
 CONV_NUM = 64
 CONV_MERGE_LEN = 8
 CONV_MERGE_LEN2 = 6
 CONV_MERGE_LEN3 = 4
 CONV_NUM2 = 64
 INTER_DIM = 120
-OUT_DIM = 6
-WIDE = 20
+
 CONV_KEEP_PROB = 0.8
 RNN_KEEP_PROB = 0.5
 
@@ -38,16 +52,20 @@ TOTAL_ITER_NUM = 100000
 
 REG_TERM = 1e-4
 
-
 select = 'a'
 
 metaDict = {'a':[119080, 1193], 'b':[116870, 1413], 'c':[116020, 1477]}
-TRAIN_SIZE = metaDict[select][0]
-EVAL_DATA_SIZE = metaDict[select][1]
+# TRAIN_SIZE = metaDict[select][0]
+# EVAL_DATA_SIZE = metaDict[select][1]
+# EVAL_ITER_NUM = int(math.ceil(EVAL_DATA_SIZE / BATCH_SIZE))
+
+TRAIN_SIZE = 3172
+EVAL_DATA_SIZE = 2920
 EVAL_ITER_NUM = int(math.ceil(EVAL_DATA_SIZE / BATCH_SIZE))
 
 prob_list_acc1 = tf.get_variable("prob_list_acc1", [1, 1, 1, CONV_NUM], tf.float32, tf.constant_initializer(CONV_KEEP_PROB), trainable=False)
 prob_list_acc2 = tf.get_variable("prob_list_acc2", [1, 1, 1, CONV_NUM], tf.float32, tf.constant_initializer(CONV_KEEP_PROB), trainable=False)
+
 prob_list_gyro1 = tf.get_variable("prob_list_gyro1", [1, 1, 1, CONV_NUM], tf.float32, tf.constant_initializer(CONV_KEEP_PROB), trainable=False)
 prob_list_gyro2 = tf.get_variable("prob_list_gyro2", [1, 1, 1, CONV_NUM], tf.float32, tf.constant_initializer(CONV_KEEP_PROB), trainable=False)
 prob_list_senIn = tf.get_variable("prob_list_senIn", [1, 1, 1, 1, CONV_NUM], tf.float32, tf.constant_initializer(CONV_KEEP_PROB), trainable=False)
@@ -70,7 +88,7 @@ org_dim_dict = {u'acc_conv1':CONV_NUM, u'acc_conv2':CONV_NUM, u'gyro_conv1':CONV
 
 ###### Util Start
 def dropOut_prun(drop_prob, prun_thres, sol_train):
-	base_prob = 0.5
+	base_prob = 0.5 
 	pruned_drop_prob = tf.cond(sol_train > 0.5, lambda: tf.where(tf.less(drop_prob, prun_thres), tf.zeros_like(drop_prob), drop_prob), 
 		lambda: tf.where(tf.less(drop_prob, prun_thres), drop_prob * base_prob, drop_prob))
 	return pruned_drop_prob
@@ -160,11 +178,16 @@ def deepSense(inputs, train, reuse=False, name='deepSense'):
 
 		# inputs shape (BATCH_SIZE, WIDE, FEATURE_DIM)
 		sensor_inputs = tf.expand_dims(inputs, axis=3)
+		print("before splitting: ", sensor_inputs.shape)
 		# sensor_inputs shape (BATCH_SIZE, WIDE, FEATURE_DIM, CHANNEL=1)
 		acc_inputs, gyro_inputs = tf.split(sensor_inputs, num_or_size_splits=2, axis=2)
+		print("after splitting: ", acc_inputs.shape)
 
-		acc_conv1 = layers.convolution2d(acc_inputs, CONV_NUM, kernel_size=[1, 2*3*CONV_LEN],
-						stride=[1, 2*3], padding='VALID', activation_fn=None, data_format='NHWC', scope='acc_conv1')
+		# ('before splitting: ', TensorShape([Dimension(64), Dimension(20), Dimension(120), Dimension(1)]))
+		# ('after splitting: ', TensorShape([Dimension(64), Dimension(20), Dimension(60), Dimension(1)]))
+		# exit()
+		acc_conv1 = layers.convolution2d(acc_inputs, CONV_NUM, kernel_size=[1, CONV_LEN],
+						stride=[1, 2*3], padding='SAME', activation_fn=None, data_format='NHWC', scope='acc_conv1')
 		acc_conv1 = batch_norm_layer(acc_conv1, train, scope='acc_BN1')
 		acc_conv1 = tf.nn.relu(acc_conv1)
 		acc_conv1_shape = acc_conv1.get_shape().as_list()
@@ -174,7 +197,7 @@ def deepSense(inputs, train, reuse=False, name='deepSense'):
 
 
 		acc_conv2 = layers.convolution2d(acc_conv1, CONV_NUM, kernel_size=[1, CONV_LEN_INTE],
-						stride=[1, 1], padding='VALID', activation_fn=None, data_format='NHWC', scope='acc_conv2')
+						stride=[1, 1], padding='SAME', activation_fn=None, data_format='NHWC', scope='acc_conv2')
 		acc_conv2 = batch_norm_layer(acc_conv2, train, scope='acc_BN2')
 		acc_conv2 = tf.nn.relu(acc_conv2)
 		acc_conv2_shape = acc_conv2.get_shape().as_list()
@@ -182,17 +205,15 @@ def deepSense(inputs, train, reuse=False, name='deepSense'):
 			noise_shape=[acc_conv2_shape[0], 1, 1, acc_conv2_shape[3]], name='acc_dropout2')
 		out_binary_mask[u'acc_conv2'] = acc_dropB2
 
-
 		acc_conv3 = layers.convolution2d(acc_conv2, CONV_NUM, kernel_size=[1, CONV_LEN_LAST],
-						stride=[1, 1], padding='VALID', activation_fn=None, data_format='NHWC', scope='acc_conv3')
+						stride=[1, 1], padding='SAME', activation_fn=None, data_format='NHWC', scope='acc_conv3')
 		acc_conv3 = batch_norm_layer(acc_conv3, train, scope='acc_BN3')
 		acc_conv3 = tf.nn.relu(acc_conv3)
 		acc_conv3_shape = acc_conv3.get_shape().as_list()
 		acc_conv_out = tf.reshape(acc_conv3, [acc_conv3_shape[0], acc_conv3_shape[1], 1, acc_conv3_shape[2],acc_conv3_shape[3]])
 
-
-		gyro_conv1 = layers.convolution2d(gyro_inputs, CONV_NUM, kernel_size=[1, 2*3*CONV_LEN],
-						stride=[1, 2*3], padding='VALID', activation_fn=None, data_format='NHWC', scope='gyro_conv1')
+		gyro_conv1 = layers.convolution2d(gyro_inputs, CONV_NUM, kernel_size=[1, CONV_LEN],
+						stride=[1, 2*3], padding='SAME', activation_fn=None, data_format='NHWC', scope='gyro_conv1')
 		gyro_conv1 = batch_norm_layer(gyro_conv1, train, scope='gyro_BN1')
 		gyro_conv1 = tf.nn.relu(gyro_conv1)
 		gyro_conv1_shape = gyro_conv1.get_shape().as_list()
@@ -202,7 +223,7 @@ def deepSense(inputs, train, reuse=False, name='deepSense'):
 
 
 		gyro_conv2 = layers.convolution2d(gyro_conv1, CONV_NUM, kernel_size=[1, CONV_LEN_INTE],
-						stride=[1, 1], padding='VALID', activation_fn=None, data_format='NHWC', scope='gyro_conv2')
+						stride=[1, 1], padding='SAME', activation_fn=None, data_format='NHWC', scope='gyro_conv2')
 		gyro_conv2 = batch_norm_layer(gyro_conv2, train, scope='gyro_BN2')
 		gyro_conv2 = tf.nn.relu(gyro_conv2)
 		gyro_conv2_shape = gyro_conv2.get_shape().as_list()
@@ -212,7 +233,7 @@ def deepSense(inputs, train, reuse=False, name='deepSense'):
 
 
 		gyro_conv3 = layers.convolution2d(gyro_conv2, CONV_NUM, activation_fn=None, kernel_size=[1, CONV_LEN_LAST],
-						stride=[1, 1], padding='VALID', data_format='NHWC', scope='gyro_conv3')
+						stride=[1, 1], padding='SAME', data_format='NHWC', scope='gyro_conv3')
 		gyro_conv3 = batch_norm_layer(gyro_conv3, train, scope='gyro_BN3')
 		gyro_conv3 = tf.nn.relu(gyro_conv3)
 		gyro_conv3_shape = gyro_conv3.get_shape().as_list()
@@ -226,9 +247,11 @@ def deepSense(inputs, train, reuse=False, name='deepSense'):
 		out_binary_mask[u'gyro_conv3'] = sensor_in_dropB
 		out_binary_mask[u'acc_conv3'] = sensor_in_dropB
 
+		print("sensor_conv_in: ", sensor_conv_in)
 
 		sensor_conv1 = layers.convolution2d(sensor_conv_in, CONV_NUM2, kernel_size=[1, 2, CONV_MERGE_LEN],
 						stride=[1, 1, 1], padding='SAME', activation_fn=None, data_format='NDHWC', scope='sensor_conv1')
+
 		sensor_conv1 = batch_norm_layer(sensor_conv1, train, scope='sensor_BN1')
 		sensor_conv1 = tf.nn.relu(sensor_conv1)
 		sensor_conv1_shape = sensor_conv1.get_shape().as_list()
@@ -406,7 +429,7 @@ def compressor(d_vars, inter_dim = 64, reuse=False, name='compressor'):
 		cell_output_list = tf.split(axis=0, num_or_size_splits=len(ord_list), value=cell_output)
 
 		drop_prob_dict = transback(cell_output_list, weight_list, ord_list)
-
+ 
 	return drop_prob_dict
 
 def gen_compressor_loss(drop_prob_dict, out_binary_mask, batchLoss, ema, lossMean, lossStd):
@@ -440,8 +463,12 @@ comps_global_step = tf.Variable(0, trainable=False)
 prun_global_step = tf.Variable(0, trainable=False)
 sol_train_global_step = tf.Variable(0, trainable=False)
 
-TF_RECORD_PATH = 'sepHARData_'+select
-SAVER_DIR = 'deepHHAR_saver'
+if TASK != "seismic":
+	TF_RECORD_PATH = 'sepHARData_'+select
+	SAVER_DIR = 'deepHHAR_saver'
+else:
+	TF_RECORD_PATH = 'seismic_data'
+	SAVER_DIR = 'seismic_saver'
 
 batch_feature, batch_label = input_pipeline_har(os.path.join(TF_RECORD_PATH, 'train.tfrecord'), BATCH_SIZE)
 batch_eval_feature, batch_eval_label = input_pipeline_har(os.path.join(TF_RECORD_PATH, 'eval.tfrecord'), BATCH_SIZE, shuffle_sample=False)
@@ -509,8 +536,51 @@ with tf.Session() as sess:
 
 	###### Start Load Test DeepSense Pre-Trained Model
 	print 'Loading Pre-trained Uncompressed DeeepSense Model'
-	saver.restore(sess, os.path.join(SAVER_DIR, "model.ckpt"))
+	saver.restore(sess, "./seismic_saver/pre-train/seismic_deepsense.ckpt")
+	# saver.restore(sess, "./seismic_saver/compress/seismic_deepsense.ckpt")
+
 	print 'Loaded\n'
+
+	###### Print total parameter number
+	# total_parameters = 0
+	# # for variable in tf.trainable_variables():
+	# for variable in tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES):
+	# 	# shape is an array of tf.Dimension
+
+	# 	# if "deepSense" in variable.name:
+	# 	print("variable: ", variable)
+	# 	shape = variable.get_shape()
+	# 	variable_parameters = 1
+	# 	for dim in shape:
+	# 		variable_parameters *= dim.value
+		
+	# 	total_parameters += variable_parameters
+	# print(total_parameters)
+	
+	# Pretrain DeepSense
+	# dev_accuracy = []
+	# dev_cross_entropy = []
+	# for i in xrange(1000000):
+	# 	_, loss_v, _trainY, _predict = sess.run([discOptimizer, loss, batch_label, predict])
+
+	# 	_label = np.argmax(_trainY, axis=1)
+	# 	_accuracy = np.mean(_label == _predict)
+	# 	dev_accuracy.append(_accuracy)
+	# 	dev_cross_entropy.append(loss_v)
+	# 	print("Iter: ", i, "Training accuracy = ", _accuracy, ", loss = ", loss_v)
+
+	# 	if i % 100 == 0:
+	# 		total_accuracy = []
+	# 		total_loss = []
+	# 		for eval_idx in xrange(EVAL_ITER_NUM):
+	# 			eval_loss_v, _trainY, _predict = sess.run([loss_eval, batch_eval_label, predict_eval])
+
+	# 			_label = np.argmax(_trainY, axis=1)
+	# 			_accuracy = np.mean(_label == _predict)
+	# 			total_accuracy.append(_accuracy)
+	# 			total_loss.append(eval_loss_v)
+	# 		print("Iter: ", i, "Testing accuracy = ", np.mean(total_accuracy), ", loss = ", np.mean(total_loss))
+	# 		saver.save(sess, "./seismic_saver/pre-train/seismic_deepsense.ckpt")
 
 	dev_accuracy = []
 	dev_cross_entropy = []
@@ -529,7 +599,6 @@ with tf.Session() as sess:
 	print '\n'
 	plot.tick()
 	###### End Load Test DeepSense Pre-Trained Model
-
 	
 	###### Start Compressing Part
 	thres_update_count = 0
@@ -538,7 +607,6 @@ with tf.Session() as sess:
 
 		# Train Critic
 		_, lossV, _trainY, _predict = sess.run([discOptimizer, loss, batch_label, predict])
-
 		# Train Compressor
 		_, compsLossV, _, lossMeanV, lossStdV = sess.run([compsOptimizer, compsLoss, maintain_averages_op, 
 																ema.average(lossMean), ema.average(lossStd)])
@@ -574,6 +642,7 @@ with tf.Session() as sess:
 			if cur_comps_ratio < 7.0 and np.mean(dev_accuracy) >= 0.93:
 				break
 
+			saver.save(sess, "./seismic_saver/compress/seismic_deepsense.ckpt")
 		if (iteration < 5) or (iteration % 200 == 199):
 			plot.flush()
 
@@ -592,7 +661,6 @@ with tf.Session() as sess:
 		_accuracy = np.mean(_label == _predict)
 		plot.plot('train cross entropy', lossV)
 		plot.plot('train accuracy', _accuracy)
-
 
 		if iteration % 50 == 49:
 			dev_accuracy = []
