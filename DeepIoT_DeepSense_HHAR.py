@@ -638,39 +638,37 @@ for var in d_vars:
 	regularizers += tf.nn.l2_loss(var)
 loss += 5e-4 * regularizers
 
-discOptimizer = tf.train.AdamOptimizer(
-		learning_rate=1e-4, 
-		beta1=0.5,
-		beta2=0.9
-	).minimize(loss, var_list=d_vars)
-###### DeepSense Model End
+# discOptimizer = tf.train.AdamOptimizer(
+# 		learning_rate=1e-4, 
+# 		beta1=0.5,
+# 		beta2=0.9
+# 	).minimize(loss, var_list=d_vars)
+# ###### DeepSense Model End
 
-movingAvg_decay = 0.99
-ema = tf.train.ExponentialMovingAverage(0.9)
-maintain_averages_op = ema.apply([lossMean, lossStd])
-movingAvg_batchLoss = tf.get_variable("movingAvg_batchLoss", [], tf.float32, tf.constant_initializer(0.0), trainable=False)
-movingStd_batchLoss = tf.get_variable("movingStd_batchLoss", [], tf.float32, tf.constant_initializer(1.0), trainable=False)
+# movingAvg_decay = 0.99
+# ema = tf.train.ExponentialMovingAverage(0.9)
+# maintain_averages_op = ema.apply([lossMean, lossStd])
+# movingAvg_batchLoss = tf.get_variable("movingAvg_batchLoss", [], tf.float32, tf.constant_initializer(0.0), trainable=False)
+# movingStd_batchLoss = tf.get_variable("movingStd_batchLoss", [], tf.float32, tf.constant_initializer(1.0), trainable=False)
 
-drop_prob_dict = compressor(d_vars)
+# drop_prob_dict = compressor(d_vars)
 
-compsLoss = gen_compressor_loss(drop_prob_dict, out_binary_mask, batchLoss, ema, lossMean, lossStd)
-update_drop_op_dict = update_drop_op(drop_prob_dict, prob_list_dict)
+# compsLoss = gen_compressor_loss(drop_prob_dict, out_binary_mask, batchLoss, ema, lossMean, lossStd)
+# update_drop_op_dict = update_drop_op(drop_prob_dict, prob_list_dict)
 
-t_vars = tf.trainable_variables()
-no_c_vars = [var for var in t_vars if not 'compressor/' in var.name]
-c_vars = [var for var in t_vars if 'compressor/' in var.name]
+# t_vars = tf.trainable_variables()
+# no_c_vars = [var for var in t_vars if not 'compressor/' in var.name]
+# c_vars = [var for var in t_vars if 'compressor/' in var.name]
 
-compsOptimizer = tf.train.RMSPropOptimizer(0.001).minimize(compsLoss,
-		var_list=c_vars, global_step=comps_global_step)
+# compsOptimizer = tf.train.RMSPropOptimizer(0.001).minimize(compsLoss,
+# 		var_list=c_vars, global_step=comps_global_step)
 
-left_num_dict = count_prun(prob_list_dict, prun_thres)
+# left_num_dict = count_prun(prob_list_dict, prun_thres)
 
-START_THRES = 0.0
-FINAL_THRES = 0.825
-THRES_STEP = 33
-UPDATE_STEP = 500
-
-logits_profiling, _ = deepSense_profiling(batch_feature, True, name='deepSense_Profiling')
+# START_THRES = 0.0
+# FINAL_THRES = 0.825
+# THRES_STEP = 33
+# UPDATE_STEP = 500
 
 with tf.Session() as sess:
 	tf.global_variables_initializer().run()
@@ -680,13 +678,11 @@ with tf.Session() as sess:
 
 	total_time = 0
 	for i in range(100):
-		_ = sess.run([logits_profiling])
-		# _ = sess.run([logits])
+		_ = sess.run([logits])
 
 	for i in range(100):
 		start_time = time.time()
-		_ = sess.run([logits_profiling])
-		# _ = sess.run([logits])
+		_ = sess.run([logits])
 		total_time += time.time() - start_time
 	print("mean time cost = ", np.mean(total_time) / 100)
 
@@ -695,8 +691,7 @@ with tf.Session() as sess:
 	for variable in tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES):
 		# shape is an array of tf.Dimension
 
-		if "deepSense_Profiling/" in variable.name:
-			print(variable)
+		if "deepSense/" in variable.name:
 			shape = variable.get_shape()
 			variable_parameters = 1
 			for dim in shape:
@@ -709,7 +704,7 @@ with tf.Session() as sess:
 
 	###### Start Load Test DeepSense Pre-Trained Model
 	print 'Loading Pre-trained Uncompressed DeeepSense Model'
-	saver.restore(sess, "./seismic_saver/pre-train/seismic_deepsense.ckpt")
+	# saver.restore(sess, "./seismic_saver/pre-train/seismic_deepsense.ckpt")
 	# saver.restore(sess, "./seismic_saver/compress/seismic_deepsense.ckpt")
 
 	print 'Loaded\n'
