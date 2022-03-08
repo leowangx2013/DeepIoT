@@ -1,0 +1,2 @@
+model_checkpoint_path: "seismic_deepsense.ckpt"
+all_model_checkpoint_paths: "seismic_deepsense.ckpt"
