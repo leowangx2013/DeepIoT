@@ -63,17 +63,17 @@ TRAIN_SIZE = 3172
 EVAL_DATA_SIZE = 2920
 EVAL_ITER_NUM = int(math.ceil(EVAL_DATA_SIZE / BATCH_SIZE))
 
-prob_list_acc1 = tf.get_variable("prob_list_acc1", [1, 1, 1, CONV_NUM], tf.float32, tf.constant_initializer(CONV_KEEP_PROB), trainable=False)
-prob_list_acc2 = tf.get_variable("prob_list_acc2", [1, 1, 1, CONV_NUM], tf.float32, tf.constant_initializer(CONV_KEEP_PROB), trainable=False)
+prob_list_acc1 = tf.get_variable("prob_list_acc1", [1, 1, 1, 21], tf.float32, tf.constant_initializer(CONV_KEEP_PROB), trainable=False)
+prob_list_acc2 = tf.get_variable("prob_list_acc2", [1, 1, 1, 21], tf.float32, tf.constant_initializer(CONV_KEEP_PROB), trainable=False)
 
-prob_list_gyro1 = tf.get_variable("prob_list_gyro1", [1, 1, 1, CONV_NUM], tf.float32, tf.constant_initializer(CONV_KEEP_PROB), trainable=False)
-prob_list_gyro2 = tf.get_variable("prob_list_gyro2", [1, 1, 1, CONV_NUM], tf.float32, tf.constant_initializer(CONV_KEEP_PROB), trainable=False)
-prob_list_senIn = tf.get_variable("prob_list_senIn", [1, 1, 1, 1, CONV_NUM], tf.float32, tf.constant_initializer(CONV_KEEP_PROB), trainable=False)
-prob_list_sen1 = tf.get_variable("prob_list_sen1", [1, 1, 1, 1, CONV_NUM2], tf.float32, tf.constant_initializer(CONV_KEEP_PROB), trainable=False)
-prob_list_sen2 = tf.get_variable("prob_list_sen2", [1, 1, 1, 1, CONV_NUM2], tf.float32, tf.constant_initializer(CONV_KEEP_PROB), trainable=False)
-prob_list_sen3 = tf.get_variable("prob_list_sen3", [1, 1, 1, 1, CONV_NUM2], tf.float32, tf.constant_initializer(CONV_KEEP_PROB), trainable=False)
-prob_list_rnn1 = tf.get_variable("prob_list_rnn1", [1, INTER_DIM], tf.float32, tf.constant_initializer(RNN_KEEP_PROB), trainable=False)
-prob_list_rnn2 = tf.get_variable("prob_list_rnn2", [1, INTER_DIM], tf.float32, tf.constant_initializer(RNN_KEEP_PROB), trainable=False)
+prob_list_gyro1 = tf.get_variable("prob_list_gyro1", [1, 1, 1, 22], tf.float32, tf.constant_initializer(CONV_KEEP_PROB), trainable=False)
+prob_list_gyro2 = tf.get_variable("prob_list_gyro2", [1, 1, 1, 17], tf.float32, tf.constant_initializer(CONV_KEEP_PROB), trainable=False)
+prob_list_senIn = tf.get_variable("prob_list_senIn", [1, 1, 1, 1, 20], tf.float32, tf.constant_initializer(CONV_KEEP_PROB), trainable=False)
+prob_list_sen1 = tf.get_variable("prob_list_sen1", [1, 1, 1, 1, 17], tf.float32, tf.constant_initializer(CONV_KEEP_PROB), trainable=False)
+prob_list_sen2 = tf.get_variable("prob_list_sen2", [1, 1, 1, 1, 18], tf.float32, tf.constant_initializer(CONV_KEEP_PROB), trainable=False)
+prob_list_sen3 = tf.get_variable("prob_list_sen3", [1, 1, 1, 1, 17], tf.float32, tf.constant_initializer(CONV_KEEP_PROB), trainable=False)
+prob_list_rnn1 = tf.get_variable("prob_list_rnn1", [1, 25], tf.float32, tf.constant_initializer(RNN_KEEP_PROB), trainable=False)
+prob_list_rnn2 = tf.get_variable("prob_list_rnn2", [1, 25], tf.float32, tf.constant_initializer(RNN_KEEP_PROB), trainable=False)
 
 sol_train = tf.Variable(0, dtype=tf.float32, trainable=False)
 prun_thres = tf.get_variable("prun_thres", [], tf.float32, tf.constant_initializer(0.0), trainable=False)
@@ -82,9 +82,9 @@ prob_list_dict = {u'acc_conv1':prob_list_acc1, u'acc_conv2':prob_list_acc2, u'gy
 					u'acc_conv3':prob_list_senIn, u'gyro_conv3':prob_list_senIn, u'sensor_conv1':prob_list_sen1, u'sensor_conv2':prob_list_sen2,
 					u'sensor_conv3':prob_list_sen3, u'cell_0':prob_list_rnn1, u'cell_1':prob_list_rnn2}
 
-org_dim_dict = {u'acc_conv1':CONV_NUM, u'acc_conv2':CONV_NUM, u'gyro_conv1':CONV_NUM, u'gyro_conv2':CONV_NUM,
-					u'acc_conv3':CONV_NUM, u'gyro_conv3':CONV_NUM, u'sensor_conv1':CONV_NUM2, u'sensor_conv2':CONV_NUM2,
-					u'sensor_conv3':CONV_NUM2, u'cell_0':INTER_DIM, u'cell_1':INTER_DIM}
+org_dim_dict = {u'acc_conv1':21, u'acc_conv2':21, u'gyro_conv1':22, u'gyro_conv2':17,
+					u'acc_conv3':20, u'gyro_conv3':20, u'sensor_conv1':17, u'sensor_conv2':18,
+					u'sensor_conv3':17, u'cell_0':25, u'cell_1':25}
 
 ###### Util Start
 def dropOut_prun(drop_prob, prun_thres, sol_train):
@@ -314,7 +314,7 @@ def deepSense_profiling(inputs, train, reuse=False, name='deepSenseProfiling'):
 		length = tf.cast(length, tf.int64)
 
 		mask = tf.sign(tf.reduce_max(tf.abs(inputs), reduction_indices=2, keep_dims=True))
-		mask = tf.tile(mask, [1,1,INTER_DIM]) # (BATCH_SIZE, WIDE, INTER_DIM)
+		mask = tf.tile(mask, [1,1,25]) # (BATCH_SIZE, WIDE, INTER_DIM)
 		avgNum = tf.reduce_sum(mask, reduction_indices=1) #(BATCH_SIZE, INTER_DIM)
 
 		out_binary_mask = {}
@@ -616,54 +616,54 @@ batch_feature, batch_label = input_pipeline_har(os.path.join(TF_RECORD_PATH, 'tr
 batch_eval_feature, batch_eval_label = input_pipeline_har(os.path.join(TF_RECORD_PATH, 'eval.tfrecord'), BATCH_SIZE, shuffle_sample=False)
 
 ###### DeepSense Model Start
-logits, out_binary_mask = deepSense(batch_feature, True, name='deepSense')
+# logits, out_binary_mask = deepSense(batch_feature, True, name='deepSense')
 
-predict = tf.argmax(logits, axis=1)
+# predict = tf.argmax(logits, axis=1)
 
-batchLoss = tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=batch_label)
-batchLossMean, batchLossVar = tf.nn.moments(batchLoss, axes = [0])
-lossMean = tf.reduce_mean(batchLossMean)
-lossStd = tf.reduce_mean(tf.sqrt(batchLossVar))
-loss = tf.reduce_mean(batchLoss)
+# batchLoss = tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=batch_label)
+# batchLossMean, batchLossVar = tf.nn.moments(batchLoss, axes = [0])
+# lossMean = tf.reduce_mean(batchLossMean)
+# lossStd = tf.reduce_mean(tf.sqrt(batchLossVar))
+# loss = tf.reduce_mean(batchLoss)
 
-logits_eval, out_binary_mask_eval = deepSense(batch_eval_feature, False, reuse=True, name='deepSense')
-predict_eval = tf.argmax(logits_eval, axis=1)
-loss_eval = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits_eval, labels=batch_eval_label))
+# logits_eval, out_binary_mask_eval = deepSense(batch_eval_feature, False, reuse=True, name='deepSense')
+# predict_eval = tf.argmax(logits_eval, axis=1)
+# loss_eval = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits_eval, labels=batch_eval_label))
 
-t_vars = tf.trainable_variables()
-d_vars = [var for var in t_vars if 'deepSense/' in var.name]
+# t_vars = tf.trainable_variables()
+# d_vars = [var for var in t_vars if 'deepSense/' in var.name]
 
-regularizers = 0.
-for var in d_vars:
-	regularizers += tf.nn.l2_loss(var)
-loss += 5e-4 * regularizers
+# regularizers = 0.
+# for var in d_vars:
+# 	regularizers += tf.nn.l2_loss(var)
+# loss += 5e-4 * regularizers
 
-discOptimizer = tf.train.AdamOptimizer(
-		learning_rate=1e-4, 
-		beta1=0.5,
-		beta2=0.9
-	).minimize(loss, var_list=d_vars)
-###### DeepSense Model End
+# discOptimizer = tf.train.AdamOptimizer(
+# 		learning_rate=1e-4, 
+# 		beta1=0.5,
+# 		beta2=0.9
+# 	).minimize(loss, var_list=d_vars)
+# ###### DeepSense Model End
 
-movingAvg_decay = 0.99
-ema = tf.train.ExponentialMovingAverage(0.9)
-maintain_averages_op = ema.apply([lossMean, lossStd])
-movingAvg_batchLoss = tf.get_variable("movingAvg_batchLoss", [], tf.float32, tf.constant_initializer(0.0), trainable=False)
-movingStd_batchLoss = tf.get_variable("movingStd_batchLoss", [], tf.float32, tf.constant_initializer(1.0), trainable=False)
+# movingAvg_decay = 0.99
+# ema = tf.train.ExponentialMovingAverage(0.9)
+# maintain_averages_op = ema.apply([lossMean, lossStd])
+# movingAvg_batchLoss = tf.get_variable("movingAvg_batchLoss", [], tf.float32, tf.constant_initializer(0.0), trainable=False)
+# movingStd_batchLoss = tf.get_variable("movingStd_batchLoss", [], tf.float32, tf.constant_initializer(1.0), trainable=False)
 
-drop_prob_dict = compressor(d_vars)
+# drop_prob_dict = compressor(d_vars)
 
-compsLoss = gen_compressor_loss(drop_prob_dict, out_binary_mask, batchLoss, ema, lossMean, lossStd)
-update_drop_op_dict = update_drop_op(drop_prob_dict, prob_list_dict)
+# compsLoss = gen_compressor_loss(drop_prob_dict, out_binary_mask, batchLoss, ema, lossMean, lossStd)
+# update_drop_op_dict = update_drop_op(drop_prob_dict, prob_list_dict)
 
-t_vars = tf.trainable_variables()
-no_c_vars = [var for var in t_vars if not 'compressor/' in var.name]
-c_vars = [var for var in t_vars if 'compressor/' in var.name]
+# t_vars = tf.trainable_variables()
+# no_c_vars = [var for var in t_vars if not 'compressor/' in var.name]
+# c_vars = [var for var in t_vars if 'compressor/' in var.name]
 
-compsOptimizer = tf.train.RMSPropOptimizer(0.001).minimize(compsLoss,
-		var_list=c_vars, global_step=comps_global_step)
+# compsOptimizer = tf.train.RMSPropOptimizer(0.001).minimize(compsLoss,
+# 		var_list=c_vars, global_step=comps_global_step)
 
-left_num_dict = count_prun(prob_list_dict, prun_thres)
+# left_num_dict = count_prun(prob_list_dict, prun_thres)
 
 START_THRES = 0.0
 FINAL_THRES = 0.825
@@ -696,12 +696,10 @@ with tf.Session() as sess:
 		# shape is an array of tf.Dimension
 
 		if "deepSense_Profiling/" in variable.name:
-			print(variable)
 			shape = variable.get_shape()
 			variable_parameters = 1
 			for dim in shape:
 				variable_parameters *= dim.value
-			
 			total_parameters += variable_parameters
 	print("total parameters: ", total_parameters)
 

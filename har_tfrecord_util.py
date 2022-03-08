@@ -5,14 +5,19 @@ import numpy as np
 
 
 # todo: change the path to your own data folder path
-DATA_FOLDER_PATH = 'sepHARData_a'
-TF_RECORD_PATH = 'sepHARData_a'
+# DATA_FOLDER_PATH = 'sepHARData_a'
+# TF_RECORD_PATH = 'sepHARData_a'
 
+# SEPCTURAL_SAMPLES = 10
+# FEATURE_DIM = SEPCTURAL_SAMPLES*6*2
+# WIDE = 20
+# OUT_DIM = 6#len(idDict)
 
-SEPCTURAL_SAMPLES = 10
-FEATURE_DIM = SEPCTURAL_SAMPLES*6*2
-WIDE = 20
-OUT_DIM = 6#len(idDict)
+DATA_FOLDER_PATH = 'seismic_data'
+TF_RECORD_PATH = 'seismic_data'
+FEATURE_DIM = 16
+WIDE = 16
+OUT_DIM = 3#len(idDict)
 BATCH_SIZE = 64
 
 
@@ -30,9 +35,14 @@ def csv_to_example(fname):
 
 
 def read_and_decode(tfrec_path):
+    print("tfrec_path: ", tfrec_path)
+
     filename_queue = tf.train.string_input_producer([tfrec_path])
     reader = tf.TFRecordReader()
     _, serialized_example = reader.read(filename_queue)
+    print("WIDE*FEATURE_DIM = ", WIDE*FEATURE_DIM)
+    print("OUT_DIM: ", OUT_DIM)
+
     features = tf.parse_single_example(serialized_example,
                                        features={
                                            'label': tf.FixedLenFeature([OUT_DIM], tf.float32),
